@@ -1,33 +1,23 @@
 const { Router } = require("express");
 const multer = require("multer");
-require('dotenv').config();
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const path = require("path");
 
 const Blog = require("../models/blog");
 const Comment = require("../models/comment");
 
 const router = Router();
 
-// 🔹 Cloudinary Configuration
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// 🔹 Set up Cloudinary Storage for Multer
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "blog_images", // Cloudinary folder name
-    format: async (req, file) => "png", // Adjust format as needed
-    public_id: (req, file) => `${Date.now()}-${file.originalname}`,
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.resolve(`./public/uploads/`));
+  },
+  filename: function (req, file, cb) {
+    const fileName = `${Date.now()}-${file.originalname}`;
+    cb(null, fileName);
   },
 });
 
-// 🔹 Set up Multer
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
 router.get("/add-new", (req, res) => {
   return res.render("addBlog", {
@@ -62,7 +52,6 @@ router.post("/comment/:blogId", async (req, res) => {
   }
 });
 
-// 🔹 Update Blog Post Route to Store Image in Cloudinary
 router.post("/", upload.single("coverImage"), async (req, res) => {
   try {
     const { title, body } = req.body;
@@ -70,7 +59,7 @@ router.post("/", upload.single("coverImage"), async (req, res) => {
       body,
       title,
       createdBy: req.user._id,
-      coverImageURL: req.file.path, // ✅ Cloudinary URL
+      coverImageURL: `/uploads/${req.file.filename}`,
     });
     return res.redirect(`/blog/${blog._id}`);
   } catch (error) {
